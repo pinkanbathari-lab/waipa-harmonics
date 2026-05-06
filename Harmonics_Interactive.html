@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Harmonics — Waipā Solar Farm</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  :root{
+    --navy:#0A2342;--yellow:#F5C518;--yellow2:#EF9F27;
+    --blue:#185FA5;--blue2:#378ADD;--green:#1D9E75;--green2:#E1F5EE;
+    --red:#E24B4A;--red2:#FCEBEB;--purple:#534AB7;--purple2:#EEEDFE;
+    --gray:#5F5E5A;--gray2:#D3D1C7;--bg:#F4F7FB;--white:#FFFFFF;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--navy);min-height:100vh;display:flex;flex-direction:column;}
+
+  header{background:var(--navy);padding:16px 36px;display:flex;align-items:center;gap:16px;}
+  .hbadge{background:var(--yellow);color:var(--navy);font-size:11px;font-weight:700;letter-spacing:0.08em;padding:3px 10px;border-radius:3px;}
+  header h1{font-size:17px;font-weight:500;color:#fff;}
+  header span{font-size:12px;color:#8090A8;margin-left:auto;font-family:'IBM Plex Mono',monospace;}
+
+  main{flex:1;display:grid;grid-template-columns:1fr 300px;gap:24px;padding:28px 36px;max-width:1280px;margin:0 auto;width:100%;}
+
+  .left-col{display:flex;flex-direction:column;gap:20px;}
+
+  /* WAVEFORM PANEL */
+  .wave-panel{background:var(--white);border-radius:12px;border:1px solid var(--gray2);padding:24px;}
+  .panel-label{font-size:11px;font-weight:700;letter-spacing:0.1em;color:var(--gray);text-transform:uppercase;margin-bottom:16px;}
+  .wave-tabs{display:flex;gap:4px;margin-bottom:16px;}
+  .wave-tab{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--gray2);background:var(--bg);color:var(--gray);transition:all 0.2s;}
+  .wave-tab.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  canvas#waveform{width:100%;height:160px;display:block;border-radius:8px;background:#0A1628;}
+
+  /* THD METER */
+  .thd-panel{background:var(--white);border-radius:12px;border:1px solid var(--gray2);padding:24px;}
+  .thd-row{display:flex;align-items:center;gap:20px;}
+  .thd-gauge-wrap{flex-shrink:0;}
+  .thd-gauge-track{width:180px;height:20px;background:var(--bg);border-radius:10px;overflow:hidden;position:relative;border:1px solid var(--gray2);}
+  .thd-gauge-fill{height:100%;border-radius:10px;transition:width 0.5s ease,background 0.5s ease;}
+  .thd-limit-mark{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:0.7;}
+  .thd-val{font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:500;transition:color 0.3s;}
+  .thd-val.ok{color:var(--green);}
+  .thd-val.warn{color:var(--red);}
+  .thd-sub{font-size:12px;color:var(--gray);margin-top:4px;}
+  .thd-limit-label{font-size:12px;color:var(--red);margin-top:8px;font-family:'IBM Plex Mono',monospace;}
+
+  /* HARMONIC SPECTRUM */
+  .spectrum-panel{background:var(--white);border-radius:12px;border:1px solid var(--gray2);padding:24px;}
+  .spectrum-bars{display:flex;align-items:flex-end;gap:8px;height:120px;padding:0 8px;}
+  .spec-bar-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;}
+  .spec-bar{width:100%;border-radius:4px 4px 0 0;transition:height 0.5s ease,background 0.5s ease;min-height:3px;}
+  .spec-label{font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--gray);text-align:center;}
+  .spec-pct{font-size:10px;font-family:'IBM Plex Mono',monospace;text-align:center;transition:color 0.3s;}
+
+  /* STATUS BANNER */
+  .status-banner{padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;display:flex;align-items:center;gap:10px;min-height:44px;transition:all 0.3s;}
+  .status-banner.ok{background:var(--green2);color:#085041;}
+  .status-banner.warn{background:var(--red2);color:#791F1F;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+  .blink-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .blink-dot.ok{background:var(--green);}
+  .blink-dot.warn{background:var(--red);animation:blink 0.8s step-end infinite;}
+
+  /* CTRL PANEL */
+  .ctrl-panel{display:flex;flex-direction:column;gap:16px;}
+  .ctrl-card{background:var(--white);border-radius:12px;border:1px solid var(--gray2);padding:20px;transition:border-color 0.3s;}
+  .ctrl-card.active-green{border-color:var(--green);}
+  .ctrl-card.active-purple{border-color:var(--purple);}
+  .ctrl-title{font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px;}
+  .ctrl-sub{font-size:12px;color:var(--gray);line-height:1.5;margin-bottom:14px;}
+
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--gray2);outline:none;cursor:pointer;margin:4px 0;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--navy);cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 2px var(--navy);}
+  .slider-row{display:flex;align-items:center;gap:10px;margin-top:6px;}
+  .slider-row label{font-size:12px;color:var(--gray);white-space:nowrap;min-width:60px;}
+  .slider-val{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;min-width:40px;text-align:right;color:var(--navy);}
+
+  .toggle-btn{width:100%;padding:9px 14px;border-radius:8px;border:1.5px solid var(--gray2);background:var(--white);font-family:'IBM Plex Sans',sans-serif;font-size:13px;font-weight:500;color:var(--navy);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:space-between;margin-top:8px;}
+  .toggle-btn:hover{background:var(--bg);}
+  .toggle-btn.on-green{background:var(--green2);border-color:var(--green);color:#085041;}
+  .toggle-btn.on-purple{background:var(--purple2);border-color:var(--purple);color:#3C3489;}
+  .toggle-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:var(--gray2);color:var(--gray);transition:all 0.2s;}
+  .toggle-btn.on-green .toggle-pill{background:var(--green);color:#fff;}
+  .toggle-btn.on-purple .toggle-pill{background:var(--purple);color:#fff;}
+
+  .harmonic-order-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;}
+  .harm-chip{padding:6px 10px;border-radius:6px;font-size:11px;font-family:'IBM Plex Mono',monospace;text-align:center;border:1px solid var(--gray2);background:var(--bg);color:var(--gray);transition:all 0.3s;}
+  .harm-chip.active{background:var(--purple2);border-color:var(--purple);color:#3C3489;font-weight:600;}
+
+  .explainer{background:var(--navy);border-radius:12px;padding:20px;}
+  .explainer-title{font-size:11px;font-weight:700;letter-spacing:0.08em;color:var(--yellow);text-transform:uppercase;margin-bottom:12px;}
+  .exp-item{display:flex;gap:10px;margin-bottom:10px;font-size:12px;line-height:1.55;color:#C8D8EC;}
+  .exp-dot{width:6px;height:6px;border-radius:50%;background:var(--yellow);flex-shrink:0;margin-top:4px;}
+
+  footer{padding:14px 36px;background:var(--navy);font-size:12px;color:#5A7090;font-family:'IBM Plex Mono',monospace;display:flex;justify-content:space-between;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hbadge">INTEGRATION ISSUES</div>
+  <h1>Harmonics — Waipā Solar Farm</h1>
+  <span>Part B — NZ Power Systems Engineering</span>
+</header>
+
+<main>
+  <div class="left-col">
+
+    <!-- WAVEFORM -->
+    <div class="wave-panel">
+      <div class="panel-label">Current waveform at PCC (Point of Common Coupling)</div>
+      <div class="wave-tabs">
+        <div class="wave-tab active" id="tab-distorted" onclick="setTab('distorted')">With harmonics (no filter)</div>
+        <div class="wave-tab" id="tab-filtered" onclick="setTab('filtered')">After LCL filter</div>
+        <div class="wave-tab" id="tab-pure" onclick="setTab('pure')">Pure 50 Hz sine (ideal)</div>
+      </div>
+      <canvas id="waveform"></canvas>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;font-family:'IBM Plex Mono',monospace;color:#666;">
+        <span>← one cycle (20 ms) →</span>
+        <span id="wave-thd-label">THD ≈ 8.2%</span>
+      </div>
+    </div>
+
+    <!-- THD METER -->
+    <div class="thd-panel">
+      <div class="panel-label">Total Harmonic Distortion (THD) at PCC</div>
+      <div class="thd-row">
+        <div>
+          <div class="thd-val ok" id="thd-val">2.1%</div>
+          <div class="thd-sub">Current THD</div>
+          <div class="thd-limit-label">Limit: 5% (IEC 61727 / NZS 4777)</div>
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--gray);margin-bottom:4px;">
+            <span>0%</span><span style="color:var(--red);">5% limit</span><span>10%</span>
+          </div>
+          <div class="thd-gauge-track">
+            <div class="thd-gauge-fill" id="thd-fill" style="width:21%;background:var(--green);"></div>
+            <div class="thd-limit-mark" style="left:50%;"></div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:11px;background:var(--purple2);color:#3C3489;padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;">5th: 250 Hz</span>
+            <span style="font-size:11px;background:var(--purple2);color:#3C3489;padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;">7th: 350 Hz</span>
+            <span style="font-size:11px;background:var(--purple2);color:#3C3489;padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;">11th: 550 Hz</span>
+            <span style="font-size:11px;background:var(--purple2);color:#3C3489;padding:3px 8px;border-radius:4px;font-family:'IBM Plex Mono',monospace;">13th: 650 Hz</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SPECTRUM -->
+    <div class="spectrum-panel">
+      <div class="panel-label">Harmonic spectrum — current injection at PCC</div>
+      <div class="spectrum-bars" id="spectrum-bars">
+        <!-- filled by JS -->
+      </div>
+      <!-- Status -->
+      <div class="status-banner ok" id="status-banner" style="margin-top:16px;">
+        <div class="blink-dot ok" id="status-dot"></div>
+        <span id="status-text">THD within IEC 61727 / NZS 4777 limit — WEL connection compliant</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Controls -->
+  <div class="ctrl-panel">
+
+    <!-- LCL Filter -->
+    <div class="ctrl-card" id="lcl-card">
+      <div class="ctrl-title">LCL output filter</div>
+      <div class="ctrl-sub">Industry-standard filter built into modern inverters. Attenuates high-frequency harmonics before they reach the grid.</div>
+      <button class="toggle-btn on-green" id="lcl-btn" onclick="toggleLCL()">
+        <span>LCL filter active</span>
+        <span class="toggle-pill" id="lcl-pill">ON</span>
+      </button>
+      <div style="margin-top:10px;font-size:12px;color:var(--gray);">Reduces 5th/7th harmonics by ~85%, 11th/13th by ~95%</div>
+    </div>
+
+    <!-- Inverter load -->
+    <div class="ctrl-card">
+      <div class="ctrl-title">Inverter output level</div>
+      <div class="ctrl-sub">Higher output = more switching activity = slightly higher harmonic injection. Effect is small with LCL filter.</div>
+      <div class="slider-row">
+        <label>Output</label>
+        <input type="range" id="inv-load" min="10" max="100" value="80" step="5" oninput="update()"/>
+        <span class="slider-val" id="inv-load-val">80%</span>
+      </div>
+    </div>
+
+    <!-- Harmonic orders toggle -->
+    <div class="ctrl-card" id="harm-card">
+      <div class="ctrl-title">Active harmonic orders</div>
+      <div class="ctrl-sub">Toggle which harmonic orders are present — simulates different inverter types or operating conditions.</div>
+      <div class="harmonic-order-grid">
+        <div class="harm-chip active" id="h5" onclick="toggleHarm(5)">5th — 250 Hz</div>
+        <div class="harm-chip active" id="h7" onclick="toggleHarm(7)">7th — 350 Hz</div>
+        <div class="harm-chip active" id="h11" onclick="toggleHarm(11)">11th — 550 Hz</div>
+        <div class="harm-chip active" id="h13" onclick="toggleHarm(13)">13th — 650 Hz</div>
+        <div class="harm-chip" id="h17" onclick="toggleHarm(17)">17th — 850 Hz</div>
+        <div class="harm-chip" id="h19" onclick="toggleHarm(19)">19th — 950 Hz</div>
+      </div>
+    </div>
+
+    <!-- Harmonic study requirement -->
+    <div class="ctrl-card">
+      <div class="ctrl-title">Harmonic study status</div>
+      <div class="ctrl-sub">WEL requires an independent harmonic penetration study before connection approval.</div>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
+          <span>IEC 61727 compliance — inverter datasheet</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>
+          <span>NZS 4777.2 compliance — LCL filter verified</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--yellow2);flex-shrink:0;"></div>
+          <span>Independent network harmonic study — required by WEL</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Explainer -->
+    <div class="explainer">
+      <div class="explainer-title">Why this matters</div>
+      <div class="exp-item"><div class="exp-dot"></div><span>Inverters inject harmonics at 5th, 7th, 11th, 13th orders</span></div>
+      <div class="exp-item"><div class="exp-dot"></div><span>THD must stay below 5% at PCC per IEC 61727 &amp; NZS 4777</span></div>
+      <div class="exp-item"><div class="exp-dot"></div><span>LCL filters in modern inverters handle this by default</span></div>
+      <div class="exp-item"><div class="exp-dot"></div><span>WEL still requires independent study — don't rely on manufacturer data alone</span></div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <span>Waipā Solar Farm — Harmonics &amp; Power Quality / Part B — NZ Power Systems</span>
+  <span>Lodestone Energy | WEL Networks | Te Awamutu, Waikato</span>
+</footer>
+
+<script>
+let lclOn = true;
+let activeHarms = new Set([5,7,11,13]);
+let currentTab = 'distorted';
+
+// Base harmonic amplitudes (% of fundamental, no filter)
+const baseAmps = {1:100, 5:8.2, 7:5.8, 11:3.4, 13:2.6, 17:1.8, 19:1.4};
+const lclReduction = {1:1, 5:0.15, 7:0.12, 11:0.05, 13:0.04, 17:0.03, 19:0.02};
+
+function getAmp(order) {
+  const load = parseInt(document.getElementById('inv-load').value)/100;
+  const base = (baseAmps[order]||0) * (0.7 + load*0.3);
+  if(!activeHarms.has(order) && order!==1) return 0;
+  return lclOn ? base * lclReduction[order] : base;
+}
+
+function calcTHD() {
+  const orders = [5,7,11,13,17,19];
+  const sumSq = orders.reduce((s,o)=>{
+    const a = getAmp(o);
+    return s + a*a;
+  },0);
+  return Math.sqrt(sumSq)/getAmp(1)*100;
+}
+
+// Canvas setup
+const wc = document.getElementById('waveform');
+const wctx = wc.getContext('2d');
+function resizeWave(){
+  wc.width = wc.offsetWidth * window.devicePixelRatio;
+  wc.height = wc.offsetHeight * window.devicePixelRatio;
+  wctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  drawWave();
+}
+window.addEventListener('resize', resizeWave);
+
+function drawWave(){
+  const W = wc.offsetWidth, H = wc.offsetHeight;
+  wctx.clearRect(0,0,W,H);
+  wctx.fillStyle='#0A1628';
+  wctx.fillRect(0,0,W,H);
+
+  // Grid
+  wctx.strokeStyle='rgba(255,255,255,0.06)';wctx.lineWidth=0.5;
+  for(let i=0;i<=4;i++){
+    const y=H/2+(i-2)*(H/5);
+    wctx.beginPath();wctx.moveTo(0,y);wctx.lineTo(W,y);wctx.stroke();
+  }
+  wctx.beginPath();wctx.moveTo(W/2,0);wctx.lineTo(W/2,H);wctx.stroke();
+
+  // Zero line
+  wctx.strokeStyle='rgba(255,255,255,0.15)';wctx.lineWidth=0.8;
+  wctx.beginPath();wctx.moveTo(0,H/2);wctx.lineTo(W,H/2);wctx.stroke();
+
+  const pts=300;
+  function drawLine(color, width, getY){
+    wctx.strokeStyle=color;wctx.lineWidth=width;wctx.beginPath();
+    for(let i=0;i<=pts;i++){
+      const x=i/pts*W;
+      const t=i/pts*2*Math.PI;
+      const y=H/2-getY(t)*(H*0.38);
+      i===0?wctx.moveTo(x,y):wctx.lineTo(x,y);
+    }
+    wctx.stroke();
+  }
+
+  if(currentTab==='pure'){
+    drawLine('#378ADD',2.5,t=>Math.sin(t));
+    document.getElementById('wave-thd-label').textContent='THD = 0.0% (ideal)';
+  } else if(currentTab==='filtered'){
+    const thd=calcTHD();
+    drawLine('#1D9E75',2.5,t=>{
+      let v=Math.sin(t);
+      if(activeHarms.has(5))  v+=getAmp(5)/100*Math.sin(5*t);
+      if(activeHarms.has(7))  v+=getAmp(7)/100*Math.sin(7*t);
+      if(activeHarms.has(11)) v+=getAmp(11)/100*Math.sin(11*t);
+      if(activeHarms.has(13)) v+=getAmp(13)/100*Math.sin(13*t);
+      if(activeHarms.has(17)) v+=getAmp(17)/100*Math.sin(17*t);
+      if(activeHarms.has(19)) v+=getAmp(19)/100*Math.sin(19*t);
+      return v;
+    });
+    document.getElementById('wave-thd-label').textContent='THD ≈ '+thd.toFixed(1)+'% (filtered)';
+  } else {
+    // Distorted — always show unfiltered
+    const savedLCL=lclOn;
+    lclOn=false;
+    const thdRaw=calcTHD();
+    drawLine('#E24B4A',2.5,t=>{
+      let v=Math.sin(t);
+      if(activeHarms.has(5))  v+=(baseAmps[5]||0)/100*Math.sin(5*t);
+      if(activeHarms.has(7))  v+=(baseAmps[7]||0)/100*Math.sin(7*t);
+      if(activeHarms.has(11)) v+=(baseAmps[11]||0)/100*Math.sin(11*t);
+      if(activeHarms.has(13)) v+=(baseAmps[13]||0)/100*Math.sin(13*t);
+      if(activeHarms.has(17)) v+=(baseAmps[17]||0)/100*Math.sin(17*t);
+      if(activeHarms.has(19)) v+=(baseAmps[19]||0)/100*Math.sin(19*t);
+      return v;
+    });
+    lclOn=savedLCL;
+    document.getElementById('wave-thd-label').textContent='THD ≈ '+thdRaw.toFixed(1)+'% (unfiltered)';
+  }
+}
+
+function setTab(tab){
+  currentTab=tab;
+  ['distorted','filtered','pure'].forEach(t=>{
+    document.getElementById('tab-'+t).className='wave-tab'+(tab===t?' active':'');
+  });
+  drawWave();
+}
+
+function buildSpectrum(){
+  const container=document.getElementById('spectrum-bars');
+  container.innerHTML='';
+  const orders=[1,5,7,11,13,17,19];
+  const colors={1:'#378ADD',5:'#534AB7',7:'#7F77DD',11:'#AFA9EC',13:'#D4537E',17:'#888780',19:'#B4B2A9'};
+  const labels={1:'1st\n50Hz',5:'5th\n250Hz',7:'7th\n350Hz',11:'11th\n550Hz',13:'13th\n650Hz',17:'17th\n850Hz',19:'19th\n950Hz'};
+  orders.forEach(o=>{
+    const wrap=document.createElement('div');
+    wrap.className='spec-bar-wrap';
+    wrap.id='spec-wrap-'+o;
+    const pct=document.createElement('div');
+    pct.className='spec-pct';pct.id='spec-pct-'+o;
+    const bar=document.createElement('div');
+    bar.className='spec-bar';bar.id='spec-bar-'+o;
+    bar.style.background=colors[o]||'#888';
+    const lbl=document.createElement('div');
+    lbl.className='spec-label';
+    lbl.textContent=labels[o];
+    wrap.appendChild(pct);wrap.appendChild(bar);wrap.appendChild(lbl);
+    container.appendChild(wrap);
+  });
+}
+
+function updateSpectrum(){
+  const orders=[1,5,7,11,13,17,19];
+  const maxH=100;
+  const maxAmp=getAmp(1);
+  orders.forEach(o=>{
+    const a=getAmp(o);
+    const pct=maxAmp>0?a/maxAmp:0;
+    const barH=Math.max(3,pct*maxH);
+    const bar=document.getElementById('spec-bar-'+o);
+    const pctEl=document.getElementById('spec-pct-'+o);
+    if(bar){
+      bar.style.height=barH+'px';
+      const relPct=(a/getAmp(1)*100);
+      pctEl.textContent=o===1?'100%':relPct.toFixed(1)+'%';
+      pctEl.style.color=relPct>5?'var(--red)':'var(--gray)';
+    }
+  });
+}
+
+function update(){
+  const load=parseInt(document.getElementById('inv-load').value);
+  document.getElementById('inv-load-val').textContent=load+'%';
+
+  const thd=calcTHD();
+  const over=thd>5;
+
+  // THD display
+  const thdEl=document.getElementById('thd-val');
+  thdEl.textContent=thd.toFixed(1)+'%';
+  thdEl.className='thd-val '+(over?'warn':'ok');
+
+  // Gauge
+  const fill=document.getElementById('thd-fill');
+  const pctW=Math.min(100,thd/10*100);
+  fill.style.width=pctW+'%';
+  fill.style.background=over?'var(--red)':'var(--green)';
+
+  // Banner
+  const banner=document.getElementById('status-banner');
+  const dot=document.getElementById('status-dot');
+  const txt=document.getElementById('status-text');
+  if(over){
+    banner.className='status-banner warn';
+    dot.className='blink-dot warn';
+    txt.textContent='⚠ THD '+thd.toFixed(1)+'% exceeds 5% limit — harmonic study and filter upgrade required';
+  } else {
+    banner.className='status-banner ok';
+    dot.className='blink-dot ok';
+    txt.textContent='✓ THD '+thd.toFixed(1)+'% — within IEC 61727 / NZS 4777 limit at PCC';
+  }
+
+  updateSpectrum();
+  drawWave();
+}
+
+function toggleLCL(){
+  lclOn=!lclOn;
+  const btn=document.getElementById('lcl-btn');
+  const pill=document.getElementById('lcl-pill');
+  const card=document.getElementById('lcl-card');
+  btn.className='toggle-btn '+(lclOn?'on-green':'');
+  pill.textContent=lclOn?'ON':'OFF';
+  card.className='ctrl-card '+(lclOn?'active-green':'');
+  update();
+}
+
+function toggleHarm(order){
+  if(activeHarms.has(order)) activeHarms.delete(order);
+  else activeHarms.add(order);
+  const chip=document.getElementById('h'+order);
+  chip.className='harm-chip'+(activeHarms.has(order)?' active':'');
+  update();
+}
+
+buildSpectrum();
+resizeWave();
+update();
+</script>
+</body>
+</html>
